@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ledger"
+version = "1.0.0"
+description = "一个简单的命令行记账工具"
+requires-python = ">=3.8"
+
+[tool.setuptools]
+packages = ["ledger"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

@@ -1,0 +1,10 @@
+{
+ "task": "multi_inventory_reservations",
+ "passed": true,
+ "steps": 17,
+ "prompt": 109774,
+ "completion": 5378,
+ "seconds": 30.7,
+ "files": 4,
+ "run": "20261002-024621-deepseek-flash"
+}

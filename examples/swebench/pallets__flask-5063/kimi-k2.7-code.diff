@@ -1,0 +1,189 @@
+diff --git a/src/flask/cli.py b/src/flask/cli.py
+index 37a15ff2..f7ac9e93 100644
+--- a/src/flask/cli.py
++++ b/src/flask/cli.py
+@@ -989,7 +989,7 @@ def shell_command() -> None:
+ @click.option(
+     "--sort",
+     "-s",
+-    type=click.Choice(("endpoint", "methods", "rule", "match")),
++    type=click.Choice(("endpoint", "methods", "rule", "match", "domain")),
+     default="endpoint",
+     help=(
+         'Method to sort routes by. "match" is the order that Flask will match '
+@@ -999,7 +999,7 @@ def shell_command() -> None:
+ @click.option("--all-methods", is_flag=True, help="Show HEAD and OPTIONS methods.")
+ @with_appcontext
+ def routes_command(sort: str, all_methods: bool) -> None:
+-    """Show all registered routes with endpoints and methods."""
++    """Show all registered routes with endpoints, methods, and domains."""
+ 
+     rules = list(current_app.url_map.iter_rules())
+     if not rules:
+@@ -1008,30 +1008,56 @@ def routes_command(sort: str, all_methods: bool) -> None:
+ 
+     ignored_methods = set(() if all_methods else ("HEAD", "OPTIONS"))
+ 
++    server_name = current_app.config.get("SERVER_NAME") or ""
++
++    if server_name:
++        server_name = server_name.split(":", 1)[0]
++
++    def get_domain(rule):
++        if rule.host:
++            return rule.host
++        if rule.subdomain:
++            return f"{rule.subdomain}.{server_name}" if server_name else rule.subdomain
++        return server_name
++
++    has_subdomains = any(rule.subdomain or rule.host for rule in rules)
++    show_domain = bool(server_name) or has_subdomains
++
+     if sort in ("endpoint", "rule"):
+         rules = sorted(rules, key=attrgetter(sort))
+     elif sort == "methods":
+         rules = sorted(rules, key=lambda rule: sorted(rule.methods))  # type: ignore
++    elif sort == "domain":
++        rules = sorted(rules, key=get_domain)
+ 
+     rule_methods = [
+         ", ".join(sorted(rule.methods - ignored_methods))  # type: ignore
+         for rule in rules
+     ]
+ 
+-    headers = ("Endpoint", "Methods", "Rule")
+-    widths = (
+-        max(len(rule.endpoint) for rule in rules),
+-        max(len(methods) for methods in rule_methods),
+-        max(len(rule.rule) for rule in rules),
+-    )
+-    widths = [max(len(h), w) for h, w in zip(headers, widths)]
+-    row = "{{0:<{0}}}  {{1:<{1}}}  {{2:<{2}}}".format(*widths)
++    if show_domain:
++        rows = [
++            (get_domain(rule), rule.endpoint, methods, rule.rule)
++            for rule, methods in zip(rules, rule_methods)
++        ]
++        headers = ("Domain", "Endpoint", "Methods", "Rule")
++    else:
++        rows = [
++            (rule.endpoint, methods, rule.rule)
++            for rule, methods in zip(rules, rule_methods)
++        ]
++        headers = ("Endpoint", "Methods", "Rule")
++
++    widths = [
++        max(len(h), *(len(r[i]) for r in rows)) for i, h in enumerate(headers)
++    ]
++    row = "  ".join(f"{{{i}:<{w}}}" for i, w in enumerate(widths))
+ 
+     click.echo(row.format(*headers).strip())
+     click.echo(row.format(*("-" * width for width in widths)))
+ 
+-    for rule, methods in zip(rules, rule_methods):
+-        click.echo(row.format(rule.endpoint, methods, rule.rule).rstrip())
++    for row_data in rows:
++        click.echo(row.format(*row_data).rstrip())
+ 
+ 
+ cli = FlaskGroup(
+diff --git a/tests/test_cli.py b/tests/test_cli.py
+index 0d9625b1..75e6471d 100644
+--- a/tests/test_cli.py
++++ b/tests/test_cli.py
+@@ -498,6 +498,95 @@ class TestRoutes:
+         assert result.exit_code == 0
+         assert "No routes were registered." in result.output
+ 
++    def test_domain(self, runner):
++        app = Flask(__name__)
++        app.config["SERVER_NAME"] = "test.local"
++        app.testing = True
++
++        @app.route("/")
++        def index():
++            pass
++
++        admin_bp = Blueprint("admin", __name__, subdomain="admin")
++
++        @admin_bp.route("/")
++        def admin_index():
++            pass
++
++        app.register_blueprint(admin_bp)
++
++        cli = FlaskGroup(create_app=lambda: app)
++        result = runner.invoke(cli, ["routes"])
++        assert result.exit_code == 0
++        assert "Domain" in result.output
++        assert "test.local" in result.output
++        assert "admin.test.local" in result.output
++
++    def test_domain_sort(self, runner):
++        app = Flask(__name__, static_folder=None)
++        app.config["SERVER_NAME"] = "test.local"
++        app.testing = True
++
++        admin_bp = Blueprint("admin", __name__, subdomain="admin")
++        test_bp = Blueprint("test", __name__, subdomain="test")
++
++        @admin_bp.route("/admin")
++        def admin_index():
++            pass
++
++        @test_bp.route("/test")
++        def test_index():
++            pass
++
++        app.register_blueprint(admin_bp)
++        app.register_blueprint(test_bp)
++
++        cli = FlaskGroup(create_app=lambda: app)
++        result = runner.invoke(cli, ["routes", "-s", "domain"])
++        assert result.exit_code == 0
++        lines = result.output.splitlines()[2:]
++        assert lines[0].startswith("admin.test.local")
++        assert lines[1].startswith("test.test.local")
++
++    def test_subdomain_without_server_name(self, runner):
++        app = Flask(__name__, static_folder=None)
++        app.testing = True
++
++        admin_bp = Blueprint("admin", __name__, subdomain="admin")
++
++        @admin_bp.route("/")
++        def admin_index():
++            pass
++
++        app.register_blueprint(admin_bp)
++
++        cli = FlaskGroup(create_app=lambda: app)
++        result = runner.invoke(cli, ["routes"])
++        assert result.exit_code == 0
++        assert "Domain" in result.output
++        assert "admin" in result.output
++
++    def test_domain_host_matching(self, runner):
++        app = Flask(__name__, host_matching=True, static_host="static.test.local")
++        app.config["SERVER_NAME"] = "test.local"
++        app.testing = True
++
++        @app.route("/")
++        def index():
++            pass
++
++        @app.route("/", host="api.test.local")
++        def api_index():
++            pass
++
++        cli = FlaskGroup(create_app=lambda: app)
++        result = runner.invoke(cli, ["routes", "-s", "domain"])
++        assert result.exit_code == 0
++        lines = result.output.splitlines()[2:]
++        assert lines[0].startswith("api.test.local")
++        assert lines[1].startswith("static.test.local")
++        assert lines[2].startswith("test.local")
++
+ 
+ def dotenv_not_available():
+     try:

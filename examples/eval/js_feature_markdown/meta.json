@@ -1,0 +1,10 @@
+{
+ "task": "js_feature_markdown",
+ "passed": true,
+ "steps": 9,
+ "prompt": 131686,
+ "completion": 20520,
+ "seconds": 95.9,
+ "files": 2,
+ "run": "20261011-211649-deepseek-v4-flash"
+}

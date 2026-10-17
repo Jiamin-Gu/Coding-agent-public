@@ -1,0 +1,93 @@
+diff --git a/CHANGES.rst b/CHANGES.rst
+index 88bfbc68..ac6c3e02 100644
+--- a/CHANGES.rst
++++ b/CHANGES.rst
+@@ -33,6 +33,9 @@ Unreleased
+ -   Use modern packaging metadata with ``pyproject.toml`` instead of ``setup.cfg``.
+     :pr:`4947`
+ -   Ensure subdomains are applied with nested blueprints. :issue:`4834`
++-   ``Config.from_file`` can open files in binary mode with ``text=False``. This
++    allows loading formats such as TOML that expect binary file handles.
++    :issue:`4992`
+ 
+ 
+ Version 2.2.3
+diff --git a/docs/config.rst b/docs/config.rst
+index d71f0326..766f646d 100644
+--- a/docs/config.rst
++++ b/docs/config.rst
+@@ -410,15 +410,18 @@ from a TOML file:
+ 
+ .. code-block:: python
+ 
+-    import toml
+-    app.config.from_file("config.toml", load=toml.load)
++    import tomllib
++    app.config.from_file("config.toml", load=tomllib.load, text=False)
+ 
+ Or from a JSON file:
+ 
+ .. code-block:: python
+ 
+     import json
+-    app.config.from_file("config.json", load=json.load)
++    app.config.from_file("config.json", load=json.load, text=True)
++
++Pass ``text=False`` if the loader expects to read from a file opened in
++binary mode, such as Python's ``tomllib``.
+ 
+ 
+ Configuring from Environment Variables
+diff --git a/src/flask/config.py b/src/flask/config.py
+index d4fc310f..01b28327 100644
+--- a/src/flask/config.py
++++ b/src/flask/config.py
+@@ -234,6 +234,7 @@ class Config(dict):
+         filename: str,
+         load: t.Callable[[t.IO[t.Any]], t.Mapping],
+         silent: bool = False,
++        text: bool = True,
+     ) -> bool:
+         """Update the values in the config from a file that is loaded
+         using the ``load`` parameter. The loaded data is passed to the
+@@ -254,14 +255,19 @@ class Config(dict):
+         :type load: ``Callable[[Reader], Mapping]`` where ``Reader``
+             implements a ``read`` method.
+         :param silent: Ignore the file if it doesn't exist.
++        :param text: Open the file in text or binary mode.
+         :return: ``True`` if the file was loaded successfully.
+ 
++        .. versionchanged:: 2.3
++            The ``text`` parameter was added.
++
+         .. versionadded:: 2.0
+         """
+         filename = os.path.join(self.root_path, filename)
++        mode = "r" if text else "rb"
+ 
+         try:
+-            with open(filename) as f:
++            with open(filename, mode) as f:
+                 obj = load(f)
+         except OSError as e:
+             if silent and e.errno in (errno.ENOENT, errno.EISDIR):
+diff --git a/tests/test_config.py b/tests/test_config.py
+index 76c5d272..bb573682 100644
+--- a/tests/test_config.py
++++ b/tests/test_config.py
+@@ -37,6 +37,15 @@ def test_config_from_file():
+     common_object_test(app)
+ 
+ 
++def test_config_from_file_binary():
++    app = flask.Flask(__name__)
++    current_dir = os.path.dirname(os.path.abspath(__file__))
++    app.config.from_file(
++        os.path.join(current_dir, "static", "config.json"), json.load, text=False
++    )
++    common_object_test(app)
++
++
+ def test_from_prefixed_env(monkeypatch):
+     monkeypatch.setenv("FLASK_STRING", "value")
+     monkeypatch.setenv("FLASK_BOOL", "true")

@@ -1,0 +1,90 @@
+diff --git a/CHANGES.rst b/CHANGES.rst
+index 88bfbc68..4a34d547 100644
+--- a/CHANGES.rst
++++ b/CHANGES.rst
+@@ -3,6 +3,9 @@ Version 2.3.0
+ 
+ Unreleased
+ 
++-   Add ``mode`` parameter to ``Config.from_file`` for specifying the file
++    open mode. This allows loading binary-mode formats such as ``tomllib``.
++    :issue:`4992`
+ -   Remove previously deprecated code. :pr:`4995`
+ 
+     -   The ``push`` and ``pop`` methods of the deprecated ``_app_ctx_stack`` and
+diff --git a/src/flask/config.py b/src/flask/config.py
+index d4fc310f..6168ae4e 100644
+--- a/src/flask/config.py
++++ b/src/flask/config.py
+@@ -232,8 +232,9 @@ class Config(dict):
+     def from_file(
+         self,
+         filename: str,
+-        load: t.Callable[[t.IO[t.Any]], t.Mapping],
++        load: t.Callable[..., t.Any],
+         silent: bool = False,
++        mode: str = "r",
+     ) -> bool:
+         """Update the values in the config from a file that is loaded
+         using the ``load`` parameter. The loaded data is passed to the
+@@ -247,6 +248,9 @@ class Config(dict):
+             import toml
+             app.config.from_file("config.toml", load=toml.load)
+ 
++            import tomllib
++            app.config.from_file("config.toml", load=tomllib.load, mode="rb")
++
+         :param filename: The path to the data file. This can be an
+             absolute path or relative to the config root path.
+         :param load: A callable that takes a file handle and returns a
+@@ -254,6 +258,9 @@ class Config(dict):
+         :type load: ``Callable[[Reader], Mapping]`` where ``Reader``
+             implements a ``read`` method.
+         :param silent: Ignore the file if it doesn't exist.
++        :param mode: The mode in which the file is opened. Default is
++            ``"r"`` for text mode. Use ``"rb"`` to load binary data, such
++            as with ``tomllib.load``.
+         :return: ``True`` if the file was loaded successfully.
+ 
+         .. versionadded:: 2.0
+@@ -261,7 +268,7 @@ class Config(dict):
+         filename = os.path.join(self.root_path, filename)
+ 
+         try:
+-            with open(filename) as f:
++            with open(filename, mode=mode) as f:
+                 obj = load(f)
+         except OSError as e:
+             if silent and e.errno in (errno.ENOENT, errno.EISDIR):
+diff --git a/tests/test_config.py b/tests/test_config.py
+index 76c5d272..ea14efce 100644
+--- a/tests/test_config.py
++++ b/tests/test_config.py
+@@ -30,13 +30,26 @@ def test_config_from_object():
+     common_object_test(app)
+ 
+ 
+-def test_config_from_file():
++def test_config_from_file_json():
+     app = flask.Flask(__name__)
+     current_dir = os.path.dirname(os.path.abspath(__file__))
+     app.config.from_file(os.path.join(current_dir, "static", "config.json"), json.load)
+     common_object_test(app)
+ 
+ 
++def test_config_from_file_toml():
++    import tomllib
++
++    app = flask.Flask(__name__)
++    current_dir = os.path.dirname(os.path.abspath(__file__))
++    app.config.from_file(
++        os.path.join(current_dir, "static", "config.toml"),
++        tomllib.load,
++        mode="rb",
++    )
++    common_object_test(app)
++
++
+ def test_from_prefixed_env(monkeypatch):
+     monkeypatch.setenv("FLASK_STRING", "value")
+     monkeypatch.setenv("FLASK_BOOL", "true")

@@ -1,0 +1,42 @@
+diff --git a/src/_pytest/skipping.py b/src/_pytest/skipping.py
+index 7bd975e5a..591a65df9 100644
+--- a/src/_pytest/skipping.py
++++ b/src/_pytest/skipping.py
+@@ -291,7 +291,8 @@ def pytest_runtest_makereport(item: Item, call: CallInfo[None]):
+             else:
+                 rep.outcome = "passed"
+                 rep.wasxfail = xfailed.reason
+-    elif (
++
++    if (
+         item._store.get(skipped_by_mark_key, True)
+         and rep.skipped
+         and type(rep.longrepr) is tuple
+diff --git a/testing/test_skipping.py b/testing/test_skipping.py
+index 0b1c0b49b..6c70be890 100644
+--- a/testing/test_skipping.py
++++ b/testing/test_skipping.py
+@@ -619,6 +619,23 @@ class TestSkip:
+         result = testdir.runpytest("-rs")
+         result.stdout.fnmatch_lines(["*for lolz*", "*1 skipped*"])
+ 
++    def test_skip_location_with_runxfail(self, testdir):
++        """--runxfail should not affect skip location reporting (issue #7432)."""
++        testdir.makepyfile(
++            test_skip_location="""
++            import pytest
++
++            @pytest.mark.skip
++            def test_skip_location():
++                assert 0
++            """
++        )
++        for args in (["-rs"], ["-rs", "--runxfail"]):
++            result = testdir.runpytest(*args)
++            result.stdout.fnmatch_lines(
++                ["SKIPPED [[]1[]] *test_skip_location.py:3: unconditional skip"]
++            )
++
+     def test_only_skips_marked_test(self, testdir):
+         testdir.makepyfile(
+             """

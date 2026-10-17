@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>coder</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <button class="icon-btn nav-toggle" id="navToggle" title="对话列表">☰</button>
+    <div class="brand">
+      <span class="logo">&gt;_</span>
+      <span class="title">coder</span>
+      <span class="conn" id="conn" title="连接状态"></span>
+    </div>
+    <button class="ws-btn" id="wsBtn" title="切换工作区">
+      <span class="ws-ic">📁</span><span id="wsName">选择工作区</span>
+    </button>
+    <div class="spacer"></div>
+    <div class="actions">
+      <span class="chip sandbox-chip" id="sandboxChip" title="沙箱模式：agent 在项目副本上工作，命令在 Docker 容器里执行；改动要你确认后才应用到项目" hidden>沙箱</span>
+      <span class="previews" id="previews"></span>
+      <button class="chip model-chip" id="model" title="">—</button>
+      <button class="icon-btn" id="undoBtn" title="撤销上一轮的文件修改" disabled>↶</button>
+      <button class="icon-btn" id="settingsBtn" title="模型设置：服务商、API Key、模型">⚙</button>
+      <label class="toggle" title="开启后，写文件和执行命令不再逐个确认">
+        <input type="checkbox" id="auto">
+        <span class="track"><span class="thumb"></span></span>
+        <span class="toggle-label">自动模式</span>
+      </label>
+      <label class="toggle" title="开启后，主 agent 可以把大任务拆给多个子 agent 并行完成，小任务仍然自己做">
+        <input type="checkbox" id="team">
+        <span class="track"><span class="thumb"></span></span>
+        <span class="toggle-label">团队模式</span>
+      </label>
+      <span class="usage" id="usage" title="本对话累计 token 用量">0 tokens</span>
+      <button class="btn ghost files-toggle" id="filesToggle">文件</button>
+    </div>
+  </header>
+
+  <div class="banner" id="banner" hidden></div>
+
+  <main class="layout">
+    <nav class="nav" id="nav">
+      <button class="btn new-chat" id="newChat">＋ 新对话</button>
+      <div class="nav-label">历史对话</div>
+      <div class="conv-list" id="convList"></div>
+    </nav>
+
+    <section class="chat">
+      <div class="messages" id="messages">
+        <!-- 还没有工作区：选择工作区 -->
+        <div class="welcome" id="welcome" hidden>
+          <div class="empty-logo">&gt;_</div>
+          <h1>选择一个工作区开始</h1>
+          <p>agent 只能读写这个文件夹里的文件。建议先用一个空文件夹练手。</p>
+          <div class="picker" id="welcomePicker"></div>
+          <p class="scratch-hint">只是想问个问题、要一道题的解法？不用选工作区，直接在下面输入就行（会用一个临时工作区，不会碰你的项目）。</p>
+        </div>
+        <!-- 有工作区但还没发消息：示例 -->
+        <div class="empty" id="empty" hidden>
+          <div class="empty-logo">&gt;_</div>
+          <h1>让 agent 帮你写代码</h1>
+          <p>描述你想做的事，agent 会自己读代码、改文件、运行验证。<br>写文件和执行命令前会请你确认。</p>
+          <div class="examples">
+            <button class="example">写一个计算器模块，配上 pytest 测试并跑通</button>
+            <button class="example">看看这个项目是做什么的，给我讲讲它的结构</button>
+            <button class="example" data-text="这是一道 LeetCode 题目（见截图）。请用 Python 写出解法，把题目里的示例写成测试并运行通过，最后给出可以直接提交到 LeetCode 的完整代码。">粘贴 LeetCode 题目截图，写出解法并用示例测试</button>
+            <button class="example">找出代码里的 TODO 并逐个处理</button>
+          </div>
+        </div>
+      </div>
+      <form class="composer" id="composer">
+        <div class="attachments" id="attachments" hidden></div>
+        <div class="composer-row">
+          <button class="btn attach" id="attachBtn" type="button" title="添加图片（也可以直接 Ctrl+V 粘贴截图，或拖进窗口）">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
+          </button>
+          <input type="file" id="fileInput" accept="image/*" multiple hidden>
+          <textarea id="input" rows="1" placeholder="描述你的任务，Enter 发送，Shift+Enter 换行，可粘贴截图"></textarea>
+          <button class="btn primary" id="send" type="submit">发送</button>
+          <button class="btn danger" id="stop" type="button" hidden>停止</button>
+        </div>
+      </form>
+      <div class="drop-hint" id="dropHint" hidden>松开鼠标，添加图片</div>
+    </section>
+
+    <aside class="side" id="side">
+      <div class="panel-head">
+        <span>工作区文件</span>
+        <button class="icon-btn" id="refreshFiles" title="刷新">↻</button>
+      </div>
+      <div class="tree" id="tree"></div>
+      <div class="viewer" id="viewer" hidden>
+        <div class="panel-head">
+          <span class="viewer-path" id="viewerPath"></span>
+          <button class="icon-btn" id="closeViewer" title="关闭">✕</button>
+        </div>
+        <pre class="code" id="viewerCode"></pre>
+      </div>
+    </aside>
+  </main>
+
+  <!-- 切换工作区弹窗 -->
+  <div class="modal" id="wsModal" hidden>
+    <div class="modal-card">
+      <div class="modal-head">
+        <span>在新的工作区开始对话</span>
+        <button class="icon-btn" id="wsModalClose">✕</button>
+      </div>
+      <div class="picker" id="modalPicker"></div>
+    </div>
+  </div>
+
+  <div class="modal" id="settingsModal" hidden>
+    <form class="modal-card settings" id="settingsForm" autocomplete="off">
+      <div class="modal-head">
+        <span>模型设置</span>
+        <button type="button" class="icon-btn" id="settingsClose">✕</button>
+      </div>
+      <label class="field">服务商
+        <select id="sProvider"></select>
+      </label>
+      <div class="field-note" id="sProviderNote"></div>
+      <label class="field">接口地址
+        <input id="sBaseUrl" placeholder="https://…/v1">
+      </label>
+      <label class="field">模型
+        <input id="sModel" list="sModels" placeholder="模型名">
+        <datalist id="sModels"></datalist>
+      </label>
+      <label class="field">API Key
+        <input id="sKey" type="password" placeholder="粘贴你的 API Key">
+      </label>
+      <div class="field-note" id="sFile"></div>
+      <div class="rules">
+        <label class="sandbox-toggle"><input type="checkbox" id="sSandbox"> 沙箱模式（Docker）</label>
+        <div class="field-note">agent 在你项目的副本上工作，命令在 Docker 容器里执行：默认断网（需要联网时单独问你）、不能用 root 权限、碰不到你电脑上的其他文件。每轮结束列出改动，你确认后才应用到真实项目。切换后立即生效</div>
+        <div class="field-note" id="sSandboxStatus"></div>
+      </div>
+      <div class="rules">
+        <div class="rules-title">MCP 服务器</div>
+        <div class="field-note">在项目的 .coder/mcp.json 或 ~/.coder/mcp.json 里配置（通用的 mcpServers 格式），新建对话后生效</div>
+        <ul id="sMcp"></ul>
+      </div>
+      <div class="rules" id="sRulesBox">
+        <div class="rules-title">总是允许的命令（当前工作区）</div>
+        <div class="field-note">确认命令时点"以后总是允许…开头的命令"会加到这里；带 &amp;&amp;、|、; 等连接符的命令仍然逐个询问</div>
+        <ul id="sRules"></ul>
+      </div>
+      <div class="picker-error" id="sError"></div>
+      <div class="settings-actions">
+        <button type="button" class="btn ghost" id="settingsCancel">取消</button>
+        <button type="submit" class="btn primary">保存</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="toast" id="toast" hidden></div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

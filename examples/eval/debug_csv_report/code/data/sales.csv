@@ -1,0 +1,10 @@
+﻿date,region,amount,notes
+2026-01-05,north,120.50,first order
+2026-01-17,south,"1,250.00","bulk, discounted"
+2026-01-20,north,79.50,
+
+2026-02-02,south,-50.00,refund
+2026-02-11,north,"2,000.10","includes ""express"" shipping"
+2026-02-28,east,10.01,
+2026-02-28,east,0.02,"two
+lines"

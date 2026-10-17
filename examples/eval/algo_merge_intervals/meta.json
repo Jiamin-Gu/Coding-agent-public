@@ -1,0 +1,10 @@
+{
+ "task": "algo_merge_intervals",
+ "passed": true,
+ "steps": 4,
+ "prompt": 6694,
+ "completion": 626,
+ "seconds": 5.5,
+ "files": 1,
+ "run": "20261002-024621-deepseek-flash"
+}

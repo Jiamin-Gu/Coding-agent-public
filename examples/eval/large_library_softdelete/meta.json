@@ -1,0 +1,10 @@
+{
+ "task": "large_library_softdelete",
+ "passed": true,
+ "steps": 18,
+ "prompt": 244969,
+ "completion": 11697,
+ "seconds": 55.7,
+ "files": 19,
+ "run": "20261008-144904-deepseek-flash"
+}

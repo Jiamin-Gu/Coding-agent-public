@@ -1,0 +1,1 @@
+{"test_command": ["node", "--test", "--test-timeout=20000", "{tests}/*.test.mjs"]}

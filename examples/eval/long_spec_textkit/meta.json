@@ -1,0 +1,10 @@
+{
+ "task": "long_spec_textkit",
+ "passed": true,
+ "steps": 8,
+ "prompt": 68667,
+ "completion": 12123,
+ "seconds": 48.3,
+ "files": 2,
+ "run": "20261002-024621-deepseek-flash"
+}

@@ -1,0 +1,47 @@
+diff --git a/src/_pytest/assertion/rewrite.py b/src/_pytest/assertion/rewrite.py
+index 157903faf..551d914b1 100644
+--- a/src/_pytest/assertion/rewrite.py
++++ b/src/_pytest/assertion/rewrite.py
+@@ -676,6 +676,7 @@ class AssertionRewriter(ast.NodeVisitor):
+                 expect_docstring
+                 and isinstance(item, ast.Expr)
+                 and isinstance(item.value, ast.Constant)
++                and isinstance(item.value.value, str)
+             ):
+                 doc = item.value.value
+                 if self.is_rewrite_disabled(doc):
+@@ -743,7 +744,7 @@ class AssertionRewriter(ast.NodeVisitor):
+ 
+     @staticmethod
+     def is_rewrite_disabled(docstring: str) -> bool:
+-        return "PYTEST_DONT_REWRITE" in docstring
++        return isinstance(docstring, str) and "PYTEST_DONT_REWRITE" in docstring
+ 
+     def variable(self) -> str:
+         """Get a new variable."""
+diff --git a/testing/test_assertrewrite.py b/testing/test_assertrewrite.py
+index d01803204..93e19f5a4 100644
+--- a/testing/test_assertrewrite.py
++++ b/testing/test_assertrewrite.py
+@@ -141,6 +141,21 @@ class TestAssertionRewrite:
+         assert isinstance(m.body[1], ast.Assert)
+         assert m.body[1].msg is None
+ 
++    def test_number_not_docstring(self) -> None:
++        s = """1\nassert 14"""
++        m = rewrite(s)
++        # A numeric literal at module top is not a docstring, so assertion
++        # rewriting must still happen and the literal must be preserved.
++        assert any(
++            isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant) and node.value.value == 1
++            for node in m.body
++        )
++        assert any(
++            isinstance(node, ast.Import)
++            and any(alias.asname == "@pytest_ar" for alias in node.names)
++            for node in m.body
++        )
++
+     def test_dont_rewrite_plugin(self, pytester: Pytester) -> None:
+         contents = {
+             "conftest.py": "pytest_plugins = 'plugin'; import plugin",

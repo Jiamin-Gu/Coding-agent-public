@@ -1,0 +1,48 @@
+diff --git a/src/_pytest/assertion/rewrite.py b/src/_pytest/assertion/rewrite.py
+index 157903faf..9bf79f1e1 100644
+--- a/src/_pytest/assertion/rewrite.py
++++ b/src/_pytest/assertion/rewrite.py
+@@ -676,6 +676,7 @@ class AssertionRewriter(ast.NodeVisitor):
+                 expect_docstring
+                 and isinstance(item, ast.Expr)
+                 and isinstance(item.value, ast.Constant)
++                and isinstance(item.value.value, str)
+             ):
+                 doc = item.value.value
+                 if self.is_rewrite_disabled(doc):
+diff --git a/testing/test_assertrewrite.py b/testing/test_assertrewrite.py
+index d01803204..bd80aeac4 100644
+--- a/testing/test_assertrewrite.py
++++ b/testing/test_assertrewrite.py
+@@ -1524,6 +1524,31 @@ class TestIssue11028:
+         result.stdout.fnmatch_lines(["*assert 4 > 5", "*where 5 = add_one(4)"])
+ 
+ 
++class TestIssue11143:
++    @pytest.mark.parametrize(
++        "first_expr", ["1", "1.25", "b'foo'", "None", "True", "..."], ids=repr
++    )
++    def test_rewrite_disabled_first_expr_not_docstring(
++        self, pytester: Pytester, first_expr: str
++    ) -> None:
++        """A leading non-string constant must not be mistaken for a docstring.
++
++        Regression test for #11143: ``ast.Constant`` also covers numeric,
++        bytes, ``None``, ``bool`` and ``Ellipsis`` literals, which caused
++        ``"PYTEST_DONT_REWRITE" in docstring`` to raise ``TypeError``.
++        """
++        pytester.makepyfile(
++            f"""
++            {first_expr}
++
++            def test_foo():
++                assert True
++            """
++        )
++        result = pytester.runpytest()
++        assert result.ret == 0
++
++
+ @pytest.mark.skipif(
+     sys.maxsize <= (2**31 - 1), reason="Causes OverflowError on 32bit systems"
+ )

@@ -1,0 +1,10 @@
+{
+ "task": "debug_perf_dedupe",
+ "passed": true,
+ "steps": 17,
+ "prompt": 102560,
+ "completion": 6755,
+ "seconds": 33.6,
+ "files": 1,
+ "run": "20261002-024621-deepseek-flash"
+}

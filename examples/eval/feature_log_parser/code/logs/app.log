@@ -1,0 +1,9 @@
+2026-09-30 10:00:01 INFO user=alice action=login latency=120ms
+2026-09-30 10:00:05 ERROR user=bob action=pay latency=3400ms error="timeout"
+2026-09-30 10:00:09 INFO user=carol action=search latency=80ms
+2026-09-30 10:01:00 WARN user=alice action=upload latency=950ms
+
+2026-09-30 10:01:30 ERROR user=alice action=pay latency=2100ms error="card declined"
+this line is broken
+2026-09-30 10:02:00 INFO user=bob action=logout latency=60ms
+2026-09-30 10:02:10 ERROR user=bob action=search latency=4100ms error="db down"

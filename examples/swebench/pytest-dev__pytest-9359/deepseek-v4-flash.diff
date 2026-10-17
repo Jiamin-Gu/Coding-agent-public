@@ -1,0 +1,101 @@
+diff --git a/src/_pytest/_code/source.py b/src/_pytest/_code/source.py
+index 6f54057c0..840981718 100644
+--- a/src/_pytest/_code/source.py
++++ b/src/_pytest/_code/source.py
+@@ -149,6 +149,11 @@ def get_statement_startend2(lineno: int, node: ast.AST) -> Tuple[int, Optional[i
+     values: List[int] = []
+     for x in ast.walk(node):
+         if isinstance(x, (ast.stmt, ast.ExceptHandler)):
++            # Before Python 3.8, the lineno of a decorated function
++            # pointed to the decorator. Since Python 3.8 it points to
++            # the "def". So, also add the decorators' line numbers.
++            for decorator in getattr(x, "decorator_list", ()):
++                values.append(decorator.lineno - 1)
+             values.append(x.lineno - 1)
+             for name in ("finalbody", "orelse"):
+                 val: Optional[List[ast.stmt]] = getattr(x, name, None)
+diff --git a/testing/code/test_source.py b/testing/code/test_source.py
+index 53e1bb985..13b0efae5 100644
+--- a/testing/code/test_source.py
++++ b/testing/code/test_source.py
+@@ -212,6 +212,26 @@ class TestSourceParsing:
+         r = source.getstatementrange(1)
+         assert r == (1, 2)
+ 
++    def test_getstatementrange_with_trailing_decorator(self) -> None:
++        """Assert statements must not span the decorator of a following
++        statement (#9359)."""
++        source = Source(
++            """\
++            def test_right_statement(foo):
++                assert foo == (3 + 2) * (6 + 9)
++
++                @t
++                def inner():
++                    return 2
++
++                assert 2 == inner
++        """
++        )
++        # The decorator of the inner function must not be
++        # included in the range of the preceding assert statement.
++        assert source.getstatementrange(1) == (1, 2)
++        assert str(source.getstatement(1)) == "    assert foo == (3 + 2) * (6 + 9)"
++
+     def test_getstatementrange_with_syntaxerror_issue7(self) -> None:
+         source = Source(":")
+         pytest.raises(SyntaxError, lambda: source.getstatementrange(0))
+diff --git a/testing/test_assertion.py b/testing/test_assertion.py
+index e8717590d..e7fc55dab 100644
+--- a/testing/test_assertion.py
++++ b/testing/test_assertion.py
+@@ -1254,6 +1254,49 @@ def test_python25_compile_issue257(pytester: Pytester) -> None:
+     )
+ 
+ 
++def test_assertion_does_not_include_trailing_decorator(pytester: Pytester) -> None:
++    """Assertion failures should not include the decorator of a following
++    statement in the failure details (#9359)."""
++    pytester.makepyfile(
++        """
++        from pytest import fixture
++
++
++        def t(foo):
++            return foo
++
++
++        @fixture
++        def foo():
++            return 1
++
++
++        def test_right_statement(foo):
++            assert foo == (3 + 2) * (6 + 9)
++
++            @t
++            def inner():
++                return 2
++
++            assert 2 == inner
++
++
++        @t
++        def outer():
++            return 2
++        """
++    )
++    result = pytester.runpytest()
++    result.stdout.fnmatch_lines(
++        [
++            "*def test_right_statement(foo):",
++            ">       assert foo == (3 + 2) * (6 + 9)",
++            "E       assert 1 == *",
++        ]
++    )
++    result.stdout.no_fnmatch_line("        @t")
++
++
+ def test_rewritten(pytester: Pytester) -> None:
+     pytester.makepyfile(
+         """

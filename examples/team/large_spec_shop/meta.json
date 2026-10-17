@@ -1,0 +1,10 @@
+{
+ "task": "large_spec_shop",
+ "passed": true,
+ "steps": 154,
+ "prompt": 5229702,
+ "completion": 195619,
+ "seconds": 1189.3,
+ "files": 20,
+ "run": "20261011-113509-deepseek-v4-flashteam-always"
+}

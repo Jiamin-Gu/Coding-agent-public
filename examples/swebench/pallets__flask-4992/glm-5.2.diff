@@ -1,0 +1,98 @@
+diff --git a/CHANGES.rst b/CHANGES.rst
+index 88bfbc68..9a9f1f69 100644
+--- a/CHANGES.rst
++++ b/CHANGES.rst
+@@ -33,6 +33,8 @@ Unreleased
+ -   Use modern packaging metadata with ``pyproject.toml`` instead of ``setup.cfg``.
+     :pr:`4947`
+ -   Ensure subdomains are applied with nested blueprints. :issue:`4834`
++-   ``Config.from_file`` accepts a ``mode`` parameter to pass to ``open``.
++    :issue:`4992`
+ 
+ 
+ Version 2.2.3
+diff --git a/docs/config.rst b/docs/config.rst
+index d71f0326..1c3fcddd 100644
+--- a/docs/config.rst
++++ b/docs/config.rst
+@@ -410,8 +410,8 @@ from a TOML file:
+ 
+ .. code-block:: python
+ 
+-    import toml
+-    app.config.from_file("config.toml", load=toml.load)
++    import tomllib
++    app.config.from_file("config.toml", load=tomllib.load, mode="rb")
+ 
+ Or from a JSON file:
+ 
+diff --git a/src/flask/config.py b/src/flask/config.py
+index d4fc310f..8ea5d95a 100644
+--- a/src/flask/config.py
++++ b/src/flask/config.py
+@@ -234,6 +234,7 @@ class Config(dict):
+         filename: str,
+         load: t.Callable[[t.IO[t.Any]], t.Mapping],
+         silent: bool = False,
++        mode: str = "r",
+     ) -> bool:
+         """Update the values in the config from a file that is loaded
+         using the ``load`` parameter. The loaded data is passed to the
+@@ -244,8 +245,8 @@ class Config(dict):
+             import json
+             app.config.from_file("config.json", load=json.load)
+ 
+-            import toml
+-            app.config.from_file("config.toml", load=toml.load)
++            import tomllib
++            app.config.from_file("config.toml", load=tomllib.load, mode="rb")
+ 
+         :param filename: The path to the data file. This can be an
+             absolute path or relative to the config root path.
+@@ -254,14 +255,19 @@ class Config(dict):
+         :type load: ``Callable[[Reader], Mapping]`` where ``Reader``
+             implements a ``read`` method.
+         :param silent: Ignore the file if it doesn't exist.
++        :param mode: Load the file in this mode. The default is text mode,
++            ``"r"``, which is what most loaders expect. For binary mode, or
++            a loader that expects bytes, use ``"rb"``.
+         :return: ``True`` if the file was loaded successfully.
+ 
+         .. versionadded:: 2.0
++        .. versionchanged:: 2.3
++            The ``mode`` parameter was added.
+         """
+         filename = os.path.join(self.root_path, filename)
+ 
+         try:
+-            with open(filename) as f:
++            with open(filename, mode) as f:
+                 obj = load(f)
+         except OSError as e:
+             if silent and e.errno in (errno.ENOENT, errno.EISDIR):
+diff --git a/tests/test_config.py b/tests/test_config.py
+index 76c5d272..67a5f9b9 100644
+--- a/tests/test_config.py
++++ b/tests/test_config.py
+@@ -247,3 +247,21 @@ def test_from_pyfile_weird_encoding(tmpdir, encoding):
+     app.config.from_pyfile(str(f))
+     value = app.config["TEST_VALUE"]
+     assert value == "föö"
++
++
++def test_config_from_file_mode():
++    app = flask.Flask(__name__)
++    current_dir = os.path.dirname(os.path.abspath(__file__))
++    app.config.from_file(
++        os.path.join(current_dir, "static", "config.json"), json.load, mode="rb"
++    )
++    common_object_test(app)
++
++
++def test_config_from_file_tomllib(tmpdir):
++    tomllib = pytest.importorskip("tomllib")
++    path = tmpdir.join("config.toml")
++    path.write('TEST_KEY = "foo"\nSECRET_KEY = "config"\n')
++    app = flask.Flask(__name__)
++    app.config.from_file(str(path), tomllib.load, mode="rb")
++    common_object_test(app)

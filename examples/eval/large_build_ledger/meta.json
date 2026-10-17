@@ -1,0 +1,10 @@
+{
+ "task": "large_build_ledger",
+ "passed": true,
+ "steps": 21,
+ "prompt": 623100,
+ "completion": 35256,
+ "seconds": 171.3,
+ "files": 9,
+ "run": "20261008-144904-deepseek-flash"
+}
