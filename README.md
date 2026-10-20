@@ -1,8 +1,10 @@
 # coder：从零实现的 Coding Agent
 
+[![tests](https://github.com/Jiamin-Gu/Coding-agent-public/actions/workflows/tests.yml/badge.svg)](https://github.com/Jiamin-Gu/Coding-agent-public/actions/workflows/tests.yml)
+
 不依赖任何 agent 框架，直接基于 LLM 的 function calling 实现一个能**读代码、改文件、跑命令、自己修 bug** 的 coding agent，带浏览器界面和自动评测。目标是讲清楚 Claude Code / Codex 这类工具内部是怎么工作的。任何兼容 OpenAI 协议的模型都能驱动，默认 DeepSeek。
 
-**当前版本：v2.8.0** · [更新记录](CHANGELOG.md) · [使用教程](docs/usage.md) · [评测](docs/evaluation.md) · [架构与设计决策](docs/design.md) · [成果示例](examples/README.md)
+**当前版本：v2.8.1** · [更新记录](CHANGELOG.md) · [使用教程](docs/usage.md) · [评测](docs/evaluation.md) · [架构与设计决策](docs/design.md) · [成果示例](examples/README.md)
 
 ## 亮点
 
@@ -62,12 +64,15 @@ python -m coder 工作区路径 --auto -p "写一个计算器模块，配上 pyt
 | [成果示例](examples/README.md) | agent 在评测中交付的完整代码、团队模式的产出、界面演示 |
 | [更新记录](CHANGELOG.md) | 每个版本改了什么、为什么改 |
 
-## 运行测试
+## 运行测试与发布
 
 ```bash
 pip install pytest
 python -m pytest            # 166 个测试，用假模型，不调用 API
 ```
+
+- **CI**：每次推送和 PR，GitHub Actions 在 Ubuntu（Python 3.10 / 3.12）和 Windows（Python 3.12）上跑全部测试（`.github/workflows/tests.yml`）
+- **CD**：推送版本标签（例如 `v2.8.1`）时自动发布（`.github/workflows/release.yml`）：跑全部测试 → 检查标签、代码里的版本号和 CHANGELOG 一致（`scripts/release_check.py`）→ 打包 → 在全新的虚拟环境里装好安装包做冒烟测试（`scripts/smoke_installed.py`）→ 创建 GitHub Release，说明取自 CHANGELOG 里这一版的内容，附上安装包。任何一步不通过就停下、不发布。试跑可以用 `v2.8.1-rc.1` 这样的标签（发布成预发布）
 
 ## 许可证
 

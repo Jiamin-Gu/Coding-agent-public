@@ -7,3 +7,6 @@ venv/
 evals/results/
 *.egg-info/
 evals/swebench/cache/
+build/
+dist/
+release_notes.md

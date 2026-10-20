@@ -1,4 +1,5 @@
 """后台进程：启动、增量读取输出、等待指定内容、连同子进程一起终止、会话结束时清理。"""
+import os
 import sys
 import time
 from pathlib import Path
@@ -116,8 +117,12 @@ def test_processes_killed_on_exit_even_after_objects_are_collected(tmp_path):
         "    print(out.split('--- 输出 ---')[1].split()[0])\n"
         "main()\n"
         "gc.collect()\n", encoding="utf-8")
+    # 脚本在临时目录里，Python 只从脚本所在的目录找模块：要显式告诉它项目在哪（本机全局装过 coder 时碰巧能找到，CI 上找不到）
+    root = Path(__file__).resolve().parent.parent
+    env = {**os.environ, "PYTHONPATH": str(root) + os.pathsep + os.environ.get("PYTHONPATH", "")}
     out = subprocess.run([sys.executable, str(tmp_path / "driver.py"), str(tmp_path)], capture_output=True,
-                         text=True, encoding="utf-8", timeout=60, cwd=Path(__file__).resolve().parent.parent)
+                         text=True, encoding="utf-8", timeout=60, cwd=root, env=env)
+    assert out.stdout.strip(), f"驱动脚本没有输出：{out.stderr[-2000:]}"
     child = int(out.stdout.strip().splitlines()[-1])
     time.sleep(0.5)
     assert not _alive(child), out.stderr

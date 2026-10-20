@@ -335,8 +335,12 @@ class Conversation:
             ch = self.shadow_changes() if self.shadow else None
             if ch:  # 每轮结束列出副本里的改动，用户决定应用到项目还是放弃
                 self.emit({"type": "sandbox_changes", "summary": describe_changes(ch), "changes": ch})
-            self.emit({"type": "done"})
+            # 先记下"结束"并存盘，再通知浏览器：收到 done 的一方（网页、测试）马上重新打开对话时，读到的是完整的记录
+            # （以前先通知再存盘，CI 上偶尔读到旧文件，v2.8.1 修复）
+            done = {"type": "done"}
+            self.events.append(done)
             self.save()
+            self.hub.broadcast(self, done)
             self.hub.push_meta()
 
 
