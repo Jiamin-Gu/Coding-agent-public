@@ -4,7 +4,7 @@
 
 不依赖任何 agent 框架，直接基于 LLM 的 function calling 实现一个能**读代码、改文件、跑命令、自己修 bug** 的 coding agent，带浏览器界面和自动评测。目标是讲清楚 Claude Code / Codex 这类工具内部是怎么工作的。任何兼容 OpenAI 协议的模型都能驱动，默认 DeepSeek。
 
-**当前版本：v2.8.1** · [更新记录](CHANGELOG.md) · [使用教程](docs/usage.md) · [评测](docs/evaluation.md) · [架构与设计决策](docs/design.md) · [成果示例](examples/README.md)
+**当前版本：v2.8.2** · [更新记录](CHANGELOG.md) · [使用教程](docs/usage.md) · [评测](docs/evaluation.md) · [架构与设计决策](docs/design.md) · [成果示例](examples/README.md)
 
 ## 亮点
 
@@ -20,7 +20,9 @@
 
 ## 快速开始
 
-需要 Python 3.10+、Git，以及一个兼容 OpenAI 协议的模型 API（例如 [DeepSeek](https://platform.deepseek.com/)）。没有 API 也可以先用演示模式看效果。
+需要 Python 3.10～3.13（推荐 3.12）、Git，以及一个兼容 OpenAI 协议的模型 API（例如 [DeepSeek](https://platform.deepseek.com/)）。没有 API 也可以先用演示模式看效果。
+
+> 刚发布的新版 Python（例如 3.15）可能装不上依赖：有的依赖包还没有提供对应版本的安装包，pip 会尝试在本机从源码编译，没有编译工具就失败（报错里有 `Failed to build`）。启动脚本会提示原因；改装 Python 3.12 即可，可以和其他版本共存。
 
 ```bash
 git clone https://github.com/Jiamin-Gu/Coding-agent-public.git
@@ -71,7 +73,7 @@ pip install pytest
 python -m pytest            # 166 个测试，用假模型，不调用 API
 ```
 
-- **CI**：每次推送和 PR，GitHub Actions 在 Ubuntu（Python 3.10 / 3.12）和 Windows（Python 3.12）上跑全部测试（`.github/workflows/tests.yml`）
+- **CI**：每次推送和 PR，GitHub Actions 在 Ubuntu（Python 3.10 / 3.12 / 3.13）和 Windows（Python 3.12 / 3.13）上跑全部测试（`.github/workflows/tests.yml`）
 - **CD**：推送版本标签（例如 `v2.8.1`）时自动发布（`.github/workflows/release.yml`）：跑全部测试 → 检查标签、代码里的版本号和 CHANGELOG 一致（`scripts/release_check.py`）→ 打包 → 在全新的虚拟环境里装好安装包做冒烟测试（`scripts/smoke_installed.py`）→ 创建 GitHub Release，说明取自 CHANGELOG 里这一版的内容，附上安装包。任何一步不通过就停下、不发布。试跑可以用 `v2.8.1-rc.1` 这样的标签（发布成预发布）
 
 ## 许可证

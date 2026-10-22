@@ -12,6 +12,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 MIRROR = "https://pypi.tuna.tsinghua.edu.cn/simple"
+NEWEST_TESTED = (3, 13)  # CI 上测试过的最新版本；更新的版本刚发布时，有的依赖可能还没有对应的安装包
+RECOMMENDED = "3.12"
+BUILD_FAILED = ("Failed to build", "Failed building wheel", "Microsoft Visual C++", "error: subprocess-exited-with-error")
 DEPS = ["fastapi", "uvicorn", "openai", "dotenv"]
 
 
@@ -20,16 +23,43 @@ def python(*args: str, quiet: bool = False) -> int:
     return subprocess.call([sys.executable, *args], cwd=ROOT, **kw)
 
 
+def install(requirements: str) -> tuple[int, str]:
+    """pip install，输出照常显示，同时留一份用来判断失败原因。"""
+    proc = subprocess.Popen([sys.executable, "-m", "pip", "install", "-r", requirements], cwd=ROOT,
+                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")
+    lines = []
+    for line in proc.stdout:
+        print(line, end="")
+        lines.append(line)
+    return proc.wait(), "".join(lines)
+
+
+def explain_failure(output: str) -> None:
+    if any(s in output for s in BUILD_FAILED):
+        print("\n[错误] 有依赖包需要在这台电脑上从源码编译，但没有编译工具，所以装不上。")
+        if sys.version_info[:2] > NEWEST_TESTED:
+            print(f"原因是 Python 版本太新（当前 {platform.python_version()}）：新版本刚发布时，一些依赖包还没有提供对应的安装包，"
+                  "pip 只能尝试从源码编译。")
+        print(f"解决办法：安装 Python {RECOMMENDED}（https://www.python.org/downloads/，可以和现在的版本共存，安装时勾选 Add python.exe to PATH），"
+              "删掉本目录下的 .venv 文件夹（如果有），再重新运行。")
+        return
+    print("\n[错误] 依赖安装失败，请检查网络后重试。国内网络可以改用镜像：")
+    print(f"  {sys.executable} -m pip install -r requirements.txt -i {MIRROR}")
+
+
 def main() -> int:
     if sys.version_info < (3, 10):
         print(f"[错误] Python 版本太低，需要 3.10 或更高版本，当前是 {platform.python_version()}。")
         print("请从 https://www.python.org/downloads/ 安装新版本后重新运行。")
         return 1
+    if sys.version_info[:2] > NEWEST_TESTED:
+        print(f"[提示] 当前 Python {platform.python_version()} 比本项目测试过的版本（3.10～{NEWEST_TESTED[0]}.{NEWEST_TESTED[1]}）新。"
+              f"新版本刚发布时，个别依赖可能还没有对应的安装包；如果下面安装失败，请改用 Python {RECOMMENDED}。\n")
     if python("-c", "import " + ", ".join(DEPS), quiet=True):
         print("第一次运行，正在安装依赖，请稍候……")
-        if python("-m", "pip", "install", "-r", "requirements.txt"):
-            print("\n[错误] 依赖安装失败，请检查网络后重试。国内网络可以改用镜像：")
-            print(f"  {sys.executable} -m pip install -r requirements.txt -i {MIRROR}")
+        code, output = install("requirements.txt")
+        if code:
+            explain_failure(output)
             return 1
     env = ROOT / ".env"
     if not env.exists() and (ROOT / ".env.example").exists():
