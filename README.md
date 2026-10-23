@@ -4,7 +4,7 @@
 
 不依赖任何 agent 框架，直接基于 LLM 的 function calling 实现一个能**读代码、改文件、跑命令、自己修 bug** 的 coding agent，带浏览器界面和自动评测。目标是讲清楚 Claude Code / Codex 这类工具内部是怎么工作的。任何兼容 OpenAI 协议的模型都能驱动，默认 DeepSeek。
 
-**当前版本：v2.8.2** · [更新记录](CHANGELOG.md) · [使用教程](docs/usage.md) · [评测](docs/evaluation.md) · [架构与设计决策](docs/design.md) · [成果示例](examples/README.md)
+**当前版本：v2.8.3** · [更新记录](CHANGELOG.md) · [使用教程](docs/usage.md) · [评测](docs/evaluation.md) · [架构与设计决策](docs/design.md) · [成果示例](examples/README.md)
 
 ## 亮点
 

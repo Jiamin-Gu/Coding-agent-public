@@ -73,8 +73,11 @@ def test_run_command(tools):
 
 
 def test_dangerous_command_blocked(tools):
-    with pytest.raises(ToolError, match="安全策略"):
-        tools["run_command"].preview(command="rm -rf /")
+    for cmd in ("rm -rf /", "rm -rf /home/user", "rm -rf ~", "rm -rf *", "rm -rf /tmp", "rm -rf /tmp/", "rm -rf /tmp/*"):
+        with pytest.raises(ToolError, match="安全策略"):
+            tools["run_command"].preview(command=cmd)
+    # 清空临时目录里的子目录是测试脚本的常见写法，不拦
+    assert "rm -rf /tmp/lt" in tools["run_command"].preview(command="rm -rf /tmp/lt && mkdir -p /tmp/lt")
 
 
 def test_read_before_edit(tools, tmp_path):

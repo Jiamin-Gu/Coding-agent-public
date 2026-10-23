@@ -10,7 +10,8 @@ from .base import Tool, ToolError
 # 无论什么权限模式都直接拒绝的命令。注意：这只是兜底，不是真正的安全隔离，
 # 真正的隔离需要容器/虚拟机（见 README 路线图）。
 DANGEROUS_PATTERNS = [
-    r"\brm\s+-[a-z]*r[a-z]*f?\s+(/|~|\*)",   # rm -rf / ~ *
+    # rm -rf / ~ *；临时目录 /tmp/… 除外：测试脚本常用"rm -rf /tmp/xxx && mkdir -p /tmp/xxx"清空临时目录（OPC 的 v1.0 验收里被拦过）
+    r"\brm\s+-[a-z]*r[a-z]*f?\s+(?!/tmp/[\w.\-])(/|~|\*)",
     r"\b(rd|rmdir)\s+/s\b",                 # Windows 递归删除
     r"\bdel\s+/[a-z]*s",                     # del /s
     r"\bformat\s+[a-z]:",
